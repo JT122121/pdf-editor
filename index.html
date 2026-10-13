@@ -346,7 +346,7 @@ body.dragging #pages{outline:3px solid var(--pen);outline-offset:-8px}
         <div class="form-list">
           <article class="form-card">
             <button class="form-thumb" data-form-slug="bahrain-vehicle-licensing-form" data-name="Vehicle Licensing Division Form.pdf" aria-label="Fill in the Vehicle Licensing Division form">
-              <img src="forms/bahrain-vehicle-licensing-form.jpg" width="400" height="565" loading="lazy" alt="First page of the Bahrain Vehicle Licensing Division form">
+              <img src="bahrain-vehicle-licensing-form.jpg" width="400" height="565" loading="lazy" alt="First page of the Bahrain Vehicle Licensing Division form">
             </button>
             <div class="form-info">
               <h3>Vehicle Licensing Division form, Bahrain</h3>
@@ -354,8 +354,8 @@ body.dragging #pages{outline:3px solid var(--pen);outline-offset:-8px}
               <p>For registering a new vehicle, annual registration, transfer of ownership, replacement copies, changing plates, cancellation and certificates.</p>
               <div class="form-actions">
                 <button class="btn primary" data-form-slug="bahrain-vehicle-licensing-form" data-name="Vehicle Licensing Division Form.pdf">Fill in this form</button>
-                <a href="forms/bahrain-vehicle-licensing-form/">How to fill it in</a>
-                <a href="forms/bahrain-vehicle-licensing-form.pdf" download>Download blank PDF</a>
+                <a href="bahrain-vehicle-licensing-form">How to fill it in</a>
+                <a href="bahrain-vehicle-licensing-form.pdf" download>Download blank PDF</a>
               </div>
             </div>
           </article>
@@ -524,7 +524,7 @@ body.dragging #pages{outline:3px solid var(--pen);outline-offset:-8px}
 'use strict';
 /* Libraries (pdf.js, pdf-lib, fontkit) are either inlined (single-file build) or loaded from lib/ on first use,
    so the landing page stays light and fast. */
-const LIB_BASE = 'lib/';
+const LIB_BASE = ''; // engine files sit next to index.html (flat layout: easy to upload)
 const rgb = (...a) => PDFLib.rgb(...a), degrees = d => PDFLib.degrees(d);
 const inlineWorker = () => document.getElementById('pdfjs-worker');
 function loadScript(src) {
@@ -1427,7 +1427,7 @@ async function openTemplate(slug, name) {
   toast('Loading ' + name.replace(/\.pdf$/i, '') + '…', 60000);
   let file;
   try {
-    const res = await fetch('forms/' + slug + '.pdf');
+    const res = await fetch(slug + '.pdf');
     if (!res.ok) throw new Error(res.status);
     file = new File([await res.blob()], name, { type: 'application/pdf' });
   } catch (e) { toast('Couldn\'t load the form. Check your connection and try again.', 7000); return; }

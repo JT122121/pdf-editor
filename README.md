@@ -5,7 +5,7 @@ Edit text in PDFs, add text, and white out scanned pages entirely in the browser
 ## Deploy on GitHub Pages
 
 1. Use the repository that serves joetayactac.site (or any public repository with Pages enabled).
-2. Upload everything in this folder, including the `lib` folder.
+2. Upload every file in this folder (there are no subfolders). Keep your existing CNAME file.
 3. Settings → Pages → Deploy from a branch → `main` / `(root)` → Save.
 
 ## Your web address (important for search)
