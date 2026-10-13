@@ -254,7 +254,19 @@ body.mode-white .cover.patch,body.mode-add .cover.patch{pointer-events:none}
 body.mode-add .hot{pointer-events:none}
 .cover{position:absolute;pointer-events:none}
 .blk{text-decoration-thickness:.06em;text-underline-offset:.09em}
-.blk{position:absolute;white-space:pre;line-height:1.2;outline:none;min-width:3px;margin:0;padding:0;cursor:text;caret-color:var(--pen)}
+.blk{position:absolute;white-space:pre!important;overflow-wrap:normal!important;word-break:keep-all;width:max-content;line-height:1.2;outline:none;min-width:3px;min-height:1.2em;margin:0;padding:0;cursor:text;caret-color:var(--pen)}
+.blk.box.fixed{white-space:pre-wrap!important;overflow-wrap:break-word!important;word-break:normal}
+.blk.box:hover{box-shadow:0 0 0 1px rgba(43,68,184,.35)}
+.blk.box.sel{box-shadow:none}
+.boxui{position:absolute;display:none;pointer-events:none;outline:1px solid var(--pen);outline-offset:1px}
+.boxui.sel{display:block}
+.rz{position:absolute;width:9px;height:9px;background:#fff;border:1.5px solid var(--pen);border-radius:2px;pointer-events:auto;touch-action:none}
+.rz-n,.rz-s{left:50%;margin-left:-5px;cursor:ns-resize}.rz-n{top:-6px}.rz-s{bottom:-6px}
+.rz-e,.rz-w{top:50%;margin-top:-5px;cursor:ew-resize}.rz-e{right:-6px}.rz-w{left:-6px}
+.rz-ne{top:-6px;right:-6px;cursor:nesw-resize}.rz-sw{bottom:-6px;left:-6px;cursor:nesw-resize}
+.rz-nw{top:-6px;left:-6px;cursor:nwse-resize}.rz-se{bottom:-6px;right:-6px;cursor:nwse-resize}
+body.mode-white .boxui .rz{pointer-events:none}
+.blk:empty{min-width:2.5em;box-shadow:0 0 0 1px var(--pen);background:rgba(43,68,184,.06)}
 .blk:hover{box-shadow:0 0 0 1px rgba(43,68,184,.45)}
 .blk.sel{box-shadow:0 0 0 1px var(--pen)}
 .handle{position:absolute;width:15px;height:15px;font-size:11px;line-height:15px;text-align:center;background:var(--pen);color:#fff;border-radius:3px;cursor:move;display:none;user-select:none;touch-action:none}
@@ -913,23 +925,42 @@ function onOverlayDown(e, pg) {
   if (e.target !== pg.overlay) return;
   if (state.mode === 'white') { startWhiteout(e, pg); return; }
   if (state.mode !== 'add') { select(null); return; }
-  e.preventDefault();
+  e.preventDefault(); select(null);
+  // Add text works like Edge: drag to draw a text box (text wraps inside it), or just click for a box that grows as you type.
   const r = pg.overlay.getBoundingClientRect(), s = state.scale;
+  const x0 = (e.clientX - r.left) / s, y0 = (e.clientY - r.top) / s;
+  const box = el('div', 'drawbox'); pg.overlay.append(box);
+  let R = { x: x0, y: y0, w: 0, h: 0 };
+  const mv = ev => {
+    const x1 = clamp((ev.clientX - r.left) / s, 0, pg.vp1.width), y1 = clamp((ev.clientY - r.top) / s, 0, pg.vp1.height);
+    R = { x: Math.min(x0, x1), y: Math.min(y0, y1), w: Math.abs(x1 - x0), h: Math.abs(y1 - y0) };
+    Object.assign(box.style, { left: R.x * s + 'px', top: R.y * s + 'px', width: R.w * s + 'px', height: R.h * s + 'px' });
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); box.remove();
+    createTextBox(pg, R, R.w * s >= 8 || R.h * s >= 8);
+  };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+
+function createTextBox(pg, R, drawn) {
   const f = fonts.get(state.lastFontKey) || fonts.get('std:Helvetica');
-  let size = state.lastSize, x = (e.clientX - r.left) / s, y = (e.clientY - r.top) / s;
-  let base = y + baselineRatio(f) * size, color = state.lastColor;
+  let size = state.lastSize, x = R.x, y = R.y, w = drawn ? Math.max(R.w, 10) : null, h = drawn ? R.h : null;
+  let color = state.lastColor;
   // Clicking inside a whiteout patch: fit the text to it and reuse the original ink colour (the canvas still has it).
   const patch = state.blocks.find(p => p.kind === 'cover' && p.pageIdx === pg.idx &&
     x >= p.cover.x && x <= p.cover.x + p.cover.w && y >= p.cover.y && y <= p.cover.y + p.cover.h);
-  if (patch) {
+  if (patch && !drawn) {
     const c = patch.cover;
     size = clamp(Math.round(c.h * 0.7 * 2) / 2, 4, 72);
-    x = c.x + 1; base = c.y + c.h * 0.78;
+    x = c.x + 1; y = c.y + (c.h - size * 1.2) / 2; w = c.w - 2; h = null;
     color = sampleRegion(pg, c).text;
   }
-  const b = { id: state.nextId++, pageIdx: pg.idx, kind: 'add', x, base, size,
-    text: 'Text', fontKey: f.key, autoFont: false, color, cover: null, spacing: state.lastSpacing || 0 };
-  state.blocks.push(b); mountBlock(b); select(b, true, true);
+  if (h !== null) h = Math.max(h, size * 1.2);
+  const base = y + baselineRatio(f) * size;
+  const b = { id: state.nextId++, pageIdx: pg.idx, kind: 'add', box: true, x, base, w, h, size,
+    text: '', fontKey: f.key, autoFont: false, color, cover: null, spacing: state.lastSpacing || 0 };
+  state.blocks.push(b); mountBlock(b); select(b, true); // empty box with a blinking cursor, ready to type
 }
 
 function startWhiteout(e, pg) {
@@ -1064,7 +1095,7 @@ function startResizeImage(ev, b) {
 function mountBlock(b) {
   const pg = state.pages[b.pageIdx];
   if (!pg || !pg.ready) return;
-  [b.coverEl, b.el, b.handle].forEach(n => n && n.remove());
+  [b.coverEl, b.el, b.handle, b.ui].forEach(n => n && n.remove());
   b.coverEl = b.cover ? el('div', 'cover') : null;
   if (b.coverEl) pg.overlay.append(b.coverEl);
   if (b.kind === 'image') {
@@ -1101,9 +1132,76 @@ function mountBlock(b) {
   const hd = el('div', 'handle'); hd.textContent = '⠿'; hd.title = 'Drag to move';
   hd.addEventListener('pointerdown', ev => startDrag(ev, b));
   pg.overlay.append(e, hd);
-  b.el = e; b.handle = hd;
-  if (state.selected === b) { e.classList.add('sel'); hd.classList.add('sel'); }
+  b.el = e; b.handle = hd; b.ui = null;
+  if (b.box) {
+    e.classList.add('box');
+    const ui = el('div', 'boxui');
+    for (const d of ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']) {
+      const k = el('span', 'rz rz-' + d);
+      k.addEventListener('pointerdown', ev => startResizeBox(ev, b, d));
+      ui.append(k);
+    }
+    pg.overlay.append(ui); b.ui = ui;
+    e.addEventListener('input', () => placeBoxUI(b));
+  }
+  if (state.selected === b) { e.classList.add('sel'); hd.classList.add('sel'); if (b.ui) b.ui.classList.add('sel'); }
   layoutBlock(b);
+}
+
+function placeBoxUI(b) {
+  if (!b.ui || !b.el) return;
+  Object.assign(b.ui.style, { left: b.el.offsetLeft + 'px', top: b.el.offsetTop + 'px', width: b.el.offsetWidth + 'px', height: b.el.offsetHeight + 'px' });
+}
+
+function startResizeBox(ev, b, dir) {
+  ev.preventDefault(); ev.stopPropagation();
+  const s = state.scale, f = fonts.get(b.fontKey) || fonts.get('std:Helvetica'), ratio = baselineRatio(f);
+  const sx = ev.clientX, sy = ev.clientY;
+  const o = { x: b.x, y: b.base - ratio * b.size, w: b.el.offsetWidth / s, h: b.el.offsetHeight / s };
+  const minW = 10, minH = b.size * 1.2;
+  const mv = e => {
+    const dx = (e.clientX - sx) / s, dy = (e.clientY - sy) / s;
+    let { x, y, w, h } = o;
+    if (dir.includes('e')) w = Math.max(minW, o.w + dx);
+    if (dir.includes('w')) { w = Math.max(minW, o.w - dx); x = o.x + o.w - w; }
+    if (dir.includes('s')) h = Math.max(minH, o.h + dy);
+    if (dir.includes('n')) { h = Math.max(minH, o.h - dy); y = o.y + o.h - h; }
+    b.x = x; b.base = y + ratio * b.size; b.h = h;
+    if (dir.includes('e') || dir.includes('w')) b.w = w; // width fixed from now on: text wraps inside
+    layoutBlock(b);
+  };
+  const up = () => { window.removeEventListener('pointermove', mv); window.removeEventListener('pointerup', up); };
+  window.addEventListener('pointermove', mv); window.addEventListener('pointerup', up);
+}
+
+// The lines exactly as the browser wrapped them, so the PDF breaks lines in the same places you see.
+function visualLines(e) {
+  const out = []; let cur = '', lastTop = null;
+  const lh = parseFloat(getComputedStyle(e).fontSize) * 1.2;
+  const range = document.createRange();
+  const walk = document.createTreeWalker(e, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+  let n;
+  const brk = () => { out.push(cur); cur = ''; lastTop = null; };
+  while ((n = walk.nextNode())) {
+    if (n.nodeType === 1) {
+      if (n.tagName === 'BR') brk();
+      else if (/^(DIV|P)$/.test(n.tagName) && (cur || out.length)) brk();
+      continue;
+    }
+    const t = n.data;
+    for (let i = 0; i < t.length; i++) {
+      if (t[i] === '\n') { brk(); continue; }
+      range.setStart(n, i); range.setEnd(n, i + 1);
+      const rc = range.getClientRects()[0];
+      if (rc && !/\s/.test(t[i])) {
+        if (lastTop !== null && rc.top - lastTop > lh * 0.5) { out.push(cur); cur = ''; }
+        lastTop = rc.top;
+      }
+      cur += t[i];
+    }
+  }
+  out.push(cur);
+  return out.map(l => l.replace(/\s+$/, ''));
 }
 
 function layoutBlock(b) {
@@ -1127,7 +1225,13 @@ function layoutBlock(b) {
     fontStyle: b.synthItalic ? 'italic' : f.style, fontSize: b.size * s + 'px', color: b.color,
     textDecoration: b.underline ? 'underline' : 'none', letterSpacing: (b.spacing || 0) * s + 'px' });
   if (b.synthBold) b.el.style.fontWeight = 700;
-  Object.assign(b.handle.style, { left: b.x * s - 18 + 'px', top: top + 'px' });
+  if (b.box) {
+    b.el.style.width = b.w ? b.w * s + 'px' : '';
+    b.el.style.minHeight = b.h ? b.h * s + 'px' : '';
+    b.el.classList.toggle('fixed', !!b.w);
+    placeBoxUI(b);
+  }
+  Object.assign(b.handle.style, { left: b.x * s - (b.box ? 26 : 18) + 'px', top: top - (b.box ? 2 : 0) + 'px' });
   if (b.coverEl) {
     const c = b.cover;
     Object.assign(b.coverEl.style, { left: c.x * s + 'px', top: c.y * s + 'px', width: c.w * s + 'px', height: c.h * s + 'px',
@@ -1149,12 +1253,13 @@ function select(b, focus, selectAll) {
     if (prev.el) prev.el.classList.remove('sel');
     if (prev.kind === 'cover' && prev.coverEl) prev.coverEl.classList.remove('sel');
     if (prev.handle) prev.handle.classList.remove('sel');
+    if (prev.ui) prev.ui.classList.remove('sel');
     if (prev.kind === 'add' && !prev.text.trim()) removeBlock(prev, true);
   }
   state.selected = b;
   if (b && b.kind === 'cover' && b.coverEl) b.coverEl.classList.add('sel');
   if (b && b.el) {
-    b.el.classList.add('sel'); b.handle.classList.add('sel');
+    b.el.classList.add('sel'); b.handle.classList.add('sel'); if (b.ui) { b.ui.classList.add('sel'); placeBoxUI(b); }
     if (focus && b.kind !== 'image') setTimeout(() => {
       b.el.focus();
       const r = document.createRange(); r.selectNodeContents(b.el); if (!selectAll) r.collapse(false);
@@ -1165,7 +1270,7 @@ function select(b, focus, selectAll) {
 }
 
 function removeBlock(b, silent) {
-  [b.coverEl, b.el, b.handle].forEach(n => n && n.remove());
+  [b.coverEl, b.el, b.handle, b.ui].forEach(n => n && n.remove());
   state.blocks = state.blocks.filter(x => x !== b);
   if (b.kind === 'edit' && b.line) { b.line.used = false; drawHotspots(state.pages[b.pageIdx]); }
   if (state.selected === b) { state.selected = null; if (!silent) renderProps(); }
@@ -1217,7 +1322,7 @@ function renderProps() {
     html = `Original: <b>${esc(on)}</b>, ${b.line.size.toFixed(1)} pt<br>` + (f.custom
       ? `<span class="ok">✓ Exact match (${f.sys ? 'installed on this computer' : 'your font file'}).</span>`
       : `<span class="warn">≈ Using ${esc(f.label)} as a stand-in.</span> ${hasLocalFonts && !sysFontsLoaded ? 'Click <b>Use this computer\'s fonts</b> in the sidebar, or add' : 'Add'} <b>${esc(on)}</b> as a .ttf/.otf for an exact match.`);
-  } else html = 'New text. Drag the ⠿ handle to move it.';
+  } else html = 'Text box. Drag a side or corner to resize it (text wraps inside), or the ⠿ handle to move it.';
   $('#p-info').innerHTML = html;
 }
 
@@ -1268,7 +1373,9 @@ $('#p-fontfilter').addEventListener('input', renderFontSelect);
 for (const k of ['b', 'i', 'u']) $('#p-' + k).addEventListener('click', () => toggleStyle(k));
 $('#p-font').addEventListener('change', e => { const b = sel(); if (!b) return; b.fontKey = e.target.value; b.autoFont = false; b.synthBold = b.synthItalic = false; state.lastFontKey = b.fontKey; layoutBlock(b); renderProps(); });
 $('#p-spacing').addEventListener('input', e => { const b = sel(), v = parseFloat(e.target.value); if (!b || isNaN(v)) return; b.spacing = clamp(v, -2, 60); state.lastSpacing = b.spacing; layoutBlock(b); });
-$('#p-size').addEventListener('input', e => { const b = sel(), v = parseFloat(e.target.value); if (!b || !(v > 0)) return; b.size = v; state.lastSize = v; layoutBlock(b); });
+$('#p-size').addEventListener('input', e => { const b = sel(), v = parseFloat(e.target.value); if (!b || !(v > 0)) return;
+  if (b.box) { const r = baselineRatio(fonts.get(b.fontKey) || fonts.get('std:Helvetica')); b.base = b.base - r * b.size + r * v; }
+  b.size = v; state.lastSize = v; layoutBlock(b); });
 $('#p-color').addEventListener('input', e => { const b = sel(); if (!b) return; b.color = e.target.value; state.lastColor = b.color; layoutBlock(b); });
 $('#p-cover').addEventListener('change', e => { const b = sel(); if (b && b.cover) { b.cover.on = e.target.checked; layoutBlock(b); } });
 $('#p-covercolor').addEventListener('input', e => { const b = sel(); if (b && b.cover) { b.cover.color = e.target.value; layoutBlock(b); } });
@@ -1374,7 +1481,7 @@ async function download() {
         const c = b.cover, [ax, ay] = vp.convertToPdfPoint(c.x, c.y), [bx, by] = vp.convertToPdfPoint(c.x + c.w, c.y + c.h);
         page.drawRectangle({ x: Math.min(ax, bx), y: Math.min(ay, by), width: Math.abs(bx - ax), height: Math.abs(by - ay), color: toRgb(c.color) });
       }
-      const font = await getFont(b.fontKey), lines = b.text.split('\n');
+      const font = await getFont(b.fontKey), lines = (b.box && b.el) ? visualLines(b.el) : b.text.split('\n');
       for (let i = 0; i < lines.length; i++) {
         if (!lines[i].trim()) continue;
         const lineBase = b.base + i * 1.2 * b.size, col = toRgb(b.color);
@@ -1435,7 +1542,7 @@ async function openTemplate(slug, name) {
   await openPdf(file);
   if (state.doc && state.name === name) {
     setMode('add');
-    toast('Click inside any box and type. Type X to tick a box. For rows of small boxes (CPR, plate), raise Spacing so each digit lands in its own box.', 9000);
+    toast('Click a box on the form, or drag to draw a text box, then type. Type X to tick a box. For rows of small boxes (CPR, plate), raise Spacing so each digit lands in its own box.', 9000);
   }
 }
 document.querySelectorAll('[data-form-slug]').forEach(n => n.addEventListener('click', e => {
