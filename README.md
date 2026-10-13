@@ -1,29 +1,34 @@
-# PDF Editor
+# Online PDF Editor
 
-Edit text in PDFs, add new text, and white out parts of scanned pages — entirely in the browser. Files never leave your device. Works offline after the first visit.
+Edit text in PDFs, add text, and white out scanned pages entirely in the browser. Files never leave the device. Works offline after the first visit.
 
 ## Deploy on GitHub Pages
 
-1. Create a new **public** repository (e.g. `pdf-editor`).
-2. Upload every file in this folder to the repository root (including `.nojekyll`).
-3. Go to **Settings → Pages**, set **Source: Deploy from a branch**, branch `main`, folder `/ (root)`, and save.
-4. After a minute the app is live at `https://<your-username>.github.io/pdf-editor/`.
+1. Create a public repository named `pdf-editor`.
+2. Upload everything in this folder, including the `lib` folder.
+3. Settings → Pages → Deploy from a branch → `main` / `(root)` → Save.
 
-Open it once while online. After that it loads without internet, and Chrome/Edge offer **Install** in the address bar so it opens like a desktop app.
+## Your web address (important for search)
+
+The site is set up for `https://joetayactac.site/pdf-editor/`.
+If your address is different, find and replace that address in:
+`index.html`, `sitemap.xml` and `robots.txt`.
+
+## Getting found on Google
+
+1. Open Google Search Console, add your domain, and verify it.
+2. Sitemaps → submit `https://joetayactac.site/pdf-editor/sitemap.xml`.
+3. URL Inspection → paste the page address → Request indexing.
+4. Do the same in Bing Webmaster Tools (it can import from Google Search Console).
+5. Get links: post it where people ask for private or offline PDF tools.
 
 ## Updating
 
-Replace `index.html`, then change `VERSION` in `sw.js` (e.g. `pdf-editor-v2`). Without the version bump, offline users keep the old copy.
-
-## Files
-
-- `index.html` — the whole app, with pdf.js, pdf-lib and fontkit built in (also works by double-clicking it locally)
-- `sw.js` — offline cache
-- `manifest.webmanifest`, `icon*` — install as an app
+After changing any file, change `VERSION` in `sw.js` (e.g. `pdf-editor-v5`), or offline visitors keep the old copy.
 
 ## Limits
 
-- Edited text is drawn over a cover box; the original text is still inside the file. Do not use this for redaction.
-- Exact font matching needs the original .ttf/.otf loaded once (saved in the browser per site).
-- Scanned PDFs have no text to edit: use Whiteout + Add text.
-- Arabic and other right-to-left scripts are not shaped correctly.
+- Edited text is covered, not deleted. Not for redaction.
+- Exact font matching uses fonts installed on the computer (Chrome/Edge desktop) or font files you add.
+- Scanned PDFs: use Whiteout + Add text.
+- Latin-script text only.
