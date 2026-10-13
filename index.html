@@ -258,13 +258,13 @@ body.mode-add .hot{pointer-events:none}
 .blk.box.fixed{white-space:pre-wrap!important;overflow-wrap:break-word!important;word-break:normal}
 .blk.box:hover{box-shadow:0 0 0 1px rgba(43,68,184,.35)}
 .blk.box.sel{box-shadow:none}
-.boxui{position:absolute;display:none;pointer-events:none;outline:1px solid var(--pen);outline-offset:1px}
+.boxui{position:absolute;display:none;pointer-events:none;outline:1px solid var(--pen);outline-offset:0}
 .boxui.sel{display:block}
-.rz{position:absolute;width:9px;height:9px;background:#fff;border:1.5px solid var(--pen);border-radius:2px;pointer-events:auto;touch-action:none}
-.rz-n,.rz-s{left:50%;margin-left:-5px;cursor:ns-resize}.rz-n{top:-6px}.rz-s{bottom:-6px}
-.rz-e,.rz-w{top:50%;margin-top:-5px;cursor:ew-resize}.rz-e{right:-6px}.rz-w{left:-6px}
-.rz-ne{top:-6px;right:-6px;cursor:nesw-resize}.rz-sw{bottom:-6px;left:-6px;cursor:nesw-resize}
-.rz-nw{top:-6px;left:-6px;cursor:nwse-resize}.rz-se{bottom:-6px;right:-6px;cursor:nwse-resize}
+.rz{position:absolute;width:7px;height:7px;background:#fff;border:1.5px solid var(--pen);border-radius:2px;pointer-events:auto;touch-action:none}
+.rz-n,.rz-s{left:50%;margin-left:-4px;cursor:ns-resize}.rz-n{top:-5px}.rz-s{bottom:-5px}
+.rz-e,.rz-w{top:50%;margin-top:-4px;cursor:ew-resize}.rz-e{right:-5px}.rz-w{left:-5px}
+.rz-ne{top:-5px;right:-5px;cursor:nesw-resize}.rz-sw{bottom:-5px;left:-5px;cursor:nesw-resize}
+.rz-nw{top:-5px;left:-5px;cursor:nwse-resize}.rz-se{bottom:-5px;right:-5px;cursor:nwse-resize}
 body.mode-white .boxui .rz{pointer-events:none}
 .blk:empty{min-width:2.5em;box-shadow:0 0 0 1px var(--pen);background:rgba(43,68,184,.06)}
 .blk:hover{box-shadow:0 0 0 1px rgba(43,68,184,.45)}
@@ -1157,8 +1157,8 @@ function startResizeBox(ev, b, dir) {
   ev.preventDefault(); ev.stopPropagation();
   const s = state.scale, f = fonts.get(b.fontKey) || fonts.get('std:Helvetica'), ratio = baselineRatio(f);
   const sx = ev.clientX, sy = ev.clientY;
-  const o = { x: b.x, y: b.base - ratio * b.size, w: b.el.offsetWidth / s, h: b.el.offsetHeight / s };
-  const minW = 10, minH = b.size * 1.2;
+  const o = { x: b.x, y: b.base - ratio * b.size, w: b.el.offsetWidth / s, h: b.el.offsetHeight / s, size: b.size };
+  const minW = 6, minH = 4 * 1.2; // down to a 4 pt line
   const mv = e => {
     const dx = (e.clientX - sx) / s, dy = (e.clientY - sy) / s;
     let { x, y, w, h } = o;
@@ -1166,6 +1166,13 @@ function startResizeBox(ev, b, dir) {
     if (dir.includes('w')) { w = Math.max(minW, o.w - dx); x = o.x + o.w - w; }
     if (dir.includes('s')) h = Math.max(minH, o.h + dy);
     if (dir.includes('n')) { h = Math.max(minH, o.h - dy); y = o.y + o.h - h; }
+    // Squeezing the box below one line of text shrinks the text to fit, so it still sits inside small form cells.
+    if (dir.includes('n') || dir.includes('s')) {
+      b.size = h < o.size * 1.2 ? Math.max(4, Math.floor(h / 1.2 * 2) / 2) : o.size;
+      if (h < o.size * 1.2) h = b.size * 1.2;
+      if (dir.includes('n')) y = o.y + o.h - h;
+      if (b.size !== state.lastSize) { state.lastSize = b.size; $('#p-size').value = b.size; }
+    }
     b.x = x; b.base = y + ratio * b.size; b.h = h;
     if (dir.includes('e') || dir.includes('w')) b.w = w; // width fixed from now on: text wraps inside
     layoutBlock(b);

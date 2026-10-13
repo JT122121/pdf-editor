@@ -1,5 +1,5 @@
 // Offline cache for the PDF Editor. Bump VERSION when you change any file so users get the update.
-const VERSION = 'pdf-editor-v13';
+const VERSION = 'pdf-editor-v14';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png',
   './pdf.min.js', './pdf.worker.min.js', './pdf-lib.min.js', './fontkit.umd.min.js'];
 
